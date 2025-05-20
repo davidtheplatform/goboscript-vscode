@@ -1,0 +1,117 @@
+{
+  "name": "goboscript",
+  "displayName": "goboscript",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onDebug",
+    "onDebugResolve:goboscript",
+    "onCommand:extension.goboscript.getProgramName"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "goboscript.helloWorld",
+        "title": "Hello World"
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "goboscript"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "goboscript",
+        "label": "goboscript debug",
+        "program": "./src/adapter.js",
+        "runtime": "node",
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "source"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "Absolute path to the source directory",
+                "default": "${workspaceFolder}"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "goboscript",
+            "request": "launch",
+            "name": "Compile workspace folder",
+            "source": "${workspaceFolder}/"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "Goboscript Debug: Launch",
+            "description": "A new configuration for launching a goboscript debug program",
+            "body": {
+              "type": "goboscript",
+              "request": "launch",
+              "name": "${2:Launch Program}",
+              "source": "^\"\\${workspaceFolder}/\""
+            }
+          }
+        ],
+        "variables": {
+          "AskForProgramName": "extension.goboscript.getProgramName"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.1",
+    "@babel/preset-env": "^7.27.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.100.0",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2",
+    "babel-loader": "^10.0.0",
+    "eslint": "^9.25.1",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "webpack": "^5.99.8",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@vscode/debugadapter": "^1.68.0",
+    "@vscode/debugprotocol": "^1.68.0",
+    "await-notify": "^1.0.1",
+    "base64-js": "^1.5.1",
+    "buffer": "^6.0.3",
+    "path-browserify": "^1.0.1",
+    "scratch-audio": "^2.0.145",
+    "scratch-render": "^2.0.369",
+    "scratch-storage": "^4.0.140",
+    "scratch-svg-renderer": "^3.0.121",
+    "scratch-vm": "^5.0.300"
+  }
+}
