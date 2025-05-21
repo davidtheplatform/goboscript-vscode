@@ -21,7 +21,9 @@ const extensionConfig = {
     libraryTarget: 'commonjs2'
   },
   externals: {
-    vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
+    vscode: 'commonjs vscode', // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
+    'scratch-parser': 'commonjs scratch-parser',
+    'scratch-vm': 'commonjs scratch-vm'
     // modules added here also need to be added in the .vscodeignore file
   },
   resolve: {
@@ -35,7 +37,7 @@ const extensionConfig = {
         exclude: /node_modules/,
         use: [
           {
-            loader: 'ts-loader'
+            loader: 'ts-loader',
           }
         ]
       }

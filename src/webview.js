@@ -6,6 +6,7 @@ import Renderer from 'scratch-render';
 import AudioEngine from 'scratch-audio';
 const {ScratchStorage, DataFormat} = require('scratch-storage');
 const {BitmapAdapter} = require('scratch-svg-renderer');
+const validate = require('scratch-parser');
 
 const vscode = acquireVsCodeApi();
 const canvas = document.getElementById('scratch-canvas');
@@ -42,13 +43,21 @@ document.getElementById("stop-btn").onclick = () => {
     vm.stopAll();
 };
 
-fetch('https://api.cors.lol/?url=http://davidtheplatform.pythonanywhere.com/static/16.sb3')
-  .then(res => res.arrayBuffer())
-  .then(buffer => vm.loadProject(buffer))
-  .then(() => vm.greenFlag());
-
 vscode.postMessage("test message");
 
-window.addEventListener('message', event => {
-  console.log(event.data);
+window.addEventListener('load', event => {
+  window.addEventListener('message', event => {
+    const message = event.data;
+    
+    switch (message.command) {
+      case 'shutdown':
+      vm.stopAll();
+      break;
+      case 'loadSB3':
+        vm.loadProject(message.data)
+        .then(() => vm.greenFlag());
+      }
+  });
+
+  vscode.postMessage({message: 'webviewLoaded', data: undefined});
 });

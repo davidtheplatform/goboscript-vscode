@@ -1,42 +1,32 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { GoboscriptDebugAdapterFactory } from './debugAdapter';
-const GoboscriptAdapter = require('./debugAdapter');
+import * as fs from "fs";
+import { GoboscriptDebugAdapterFactory } from "./debugAdapter";
+const GoboscriptAdapter = require("./debugAdapter");
 
 export function activate(context: vscode.ExtensionContext) {
-  // const panel = vscode.window.createWebviewPanel(
-  //   "scratchPlayer",
-  //   "Scratch VM Player",
-  //   vscode.ViewColumn.One,
-  //   {
-  //     enableScripts: true,
-  //     localResourceRoots: [
-  //       vscode.Uri.file(path.join(context.extensionPath, "dist")),
-  //     ],
-  //   }
-  // );
-  // const disposable = vscode.commands.registerCommand(
-  //   "goboscript.helloWorld",
-  //   () => {
-  //     const scriptUri = panel.webview.asWebviewUri(
-  //       vscode.Uri.file(
-  //         path.join(context.extensionPath, "dist", "webview.bundle.js")
-  //       )
-  //     );
+  const taskProvider = vscode.tasks.registerTaskProvider("goboscript", {
+    provideTasks: async () => {
+      return [
+        new vscode.Task(
+          { type: "goboscript" },
+          vscode.TaskScope.Workspace,
+          "build",
+          "goboscript",
+          new vscode.ShellExecution("goboscript build")
+        ),
+      ];
+    },
+    resolveTask(_task: vscode.Task): vscode.Task | undefined {
+      return _task;
+    },
+  });
 
-  //     panel.webview.html = getWebviewContent(scriptUri);
-  //   }
-  // );
-
-  // context.subscriptions.push(disposable);
+  context.subscriptions.push(taskProvider);
 
   const factory = new GoboscriptDebugAdapterFactory();
   factory.attach(context);
   context.subscriptions.push(
-    vscode.debug.registerDebugAdapterDescriptorFactory('goboscript', factory)
+    vscode.debug.registerDebugAdapterDescriptorFactory("goboscript", factory)
   );
-}
-
-function test(abc: string) {
-  console.log(abc);
 }

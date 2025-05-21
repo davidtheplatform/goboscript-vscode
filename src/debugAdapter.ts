@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
+import * as fs from 'fs';
 
 import {
   LoggingDebugSession,
@@ -12,19 +13,26 @@ import { DebugProtocol } from "@vscode/debugprotocol";
 
 export class GoboscriptInlineDebugSession extends LoggingDebugSession {
   panel: vscode.WebviewPanel;
+  context: vscode.ExtensionContext;
   _keepAlive?: NodeJS.Timeout;
 
+  webviewLoaded: Boolean = false;
+  _loadSB3?: NodeJS.Timeout;
+
   constructor(context: vscode.ExtensionContext) {
-    super("inline-debug.txt");
+    super("debug_log.txt");
     this.setDebuggerLinesStartAt1(true);
     this.setDebuggerColumnsStartAt1(true);
 
+    this.context = context;
+    
     this.panel = vscode.window.createWebviewPanel(
       "scratchPlayer",
-      "Scratch VM Player",
-      vscode.ViewColumn.One,
+      "Scratch Player",
+      vscode.ViewColumn.Two,
       {
         enableScripts: true,
+        retainContextWhenHidden: true,
         localResourceRoots: [
           vscode.Uri.file(path.join(context.extensionPath, "dist")),
         ],
@@ -38,10 +46,18 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
     );
 
     this.panel.webview.html = getWebviewContent(scriptUri);
-
-    this.panel.webview.onDidReceiveMessage((message: any) => {
-      console.log("got message: ", message);
+    
+    this.panel.webview.onDidReceiveMessage(message => {
+      this.handleWebviewMessage(message);
     });
+  }
+
+  handleWebviewMessage(message: any) {
+    switch (message.message) {
+      case 'webviewLoaded':
+        this.webviewLoaded = true;
+        break;
+    }
   }
 
   protected initializeRequest(
@@ -58,33 +74,34 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
     response: DebugProtocol.LaunchResponse,
     args: DebugProtocol.LaunchRequestArguments
   ): void {
-    console.log("adsf");
-
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+      vscode.window.showErrorMessage("No workspace folder open");
+    } else {
+      this._loadSB3 = setInterval(() => {
+        if (this.webviewLoaded) {
+          clearInterval(this._loadSB3);
+          vscode.workspace.fs.readFile(vscode.Uri.file((args as any).project))
+          .then((content) => {
+            this.panel.webview.postMessage({command: 'loadSB3', data: content.buffer});
+          });
+        }
+      }, 500);
+    }
     this.sendResponse(response);
-    // this.sendEvent(new StoppedEvent("entry", 1));
-    // setTimeout(() => this.sendEvent(new TerminatedEvent()), 2000);
 
-    this._keepAlive = setInterval(() => {
-      console.log("Adapter still alive...");
-    }, 1000);
+    // this._keepAlive = setInterval(() => {
+    //   console.log("Adapter still alive...");
+    // }, 1000);
   }
 
   protected disconnectRequest(
     response: DebugProtocol.DisconnectResponse,
     args: DebugProtocol.DisconnectArguments
   ): void {
-    console.log("disconnect request");
-    clearInterval(this._keepAlive);
-    this.sendResponse(response);
-    this.sendEvent(new TerminatedEvent());
-  }
-
-  protected terminateRequest(
-    response: DebugProtocol.DisconnectResponse,
-    args: DebugProtocol.DisconnectArguments
-  ): void {
-    console.log("terminate request");
+    console.log("shutting down vm...");
     this.panel.webview.postMessage({command: 'shutdown', data: undefined});
+    this.panel.dispose();
     clearInterval(this._keepAlive);
     this.sendResponse(response);
     this.sendEvent(new TerminatedEvent());
@@ -116,9 +133,10 @@ function getWebviewContent(scriptUri: vscode.Uri) {
       <title>Scratch VM</title>
     </head>
     <body>
-      <canvas id="scratch-canvas" width="480" height="360"></canvas>
       <button id="start-btn">start</button>
       <button id="stop-btn">stop</button>
+      <br>
+      <canvas id="scratch-canvas" width="480" height="360"></canvas>
       <script src="${scriptUri}">
     </body>
     </html>

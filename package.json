@@ -16,6 +16,13 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "taskDefinitions": [
+      {
+        "type": "goboscript",
+        "required": [],
+        "properties": {}
+      }
+    ],
     "commands": [
       {
         "command": "goboscript.helloWorld",
@@ -36,10 +43,10 @@
         "configurationAttributes": {
           "launch": {
             "required": [
-              "source"
+              "project"
             ],
             "properties": {
-              "source": {
+              "project": {
                 "type": "string",
                 "description": "Absolute path to the source directory",
                 "default": "${workspaceFolder}"
@@ -51,19 +58,20 @@
           {
             "type": "goboscript",
             "request": "launch",
-            "name": "Compile workspace folder",
+            "name": "Debug project",
             "source": "${workspaceFolder}/"
           }
         ],
         "configurationSnippets": [
           {
-            "label": "Goboscript Debug: Launch",
-            "description": "A new configuration for launching a goboscript debug program",
+            "label": "Goboscript: Debug",
+            "description": "Debug scratch project",
             "body": {
               "type": "goboscript",
               "request": "launch",
-              "name": "${2:Launch Program}",
-              "source": "^\"\\${workspaceFolder}/\""
+              "name": "${2:Debug project}",
+              "preLaunchTask": "goboscript: build",
+              "project": "^\"\\${workspaceFolder}/project.sb3\""
             }
           }
         ],
@@ -98,7 +106,7 @@
     "eslint": "^9.25.1",
     "ts-loader": "^9.5.2",
     "typescript": "^5.8.3",
-    "webpack": "^5.99.8",
+    "webpack": "^5.99.9",
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
