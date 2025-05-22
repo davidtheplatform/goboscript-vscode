@@ -2,6 +2,7 @@ import { Buffer } from 'buffer';
 window.Buffer = Buffer;
 
 const Scaffolding = require('@turbowarp/scaffolding/with-music');
+import { isPaused, setPaused, onPauseChanged, setup } from "./module.js";
 
 const vscode = acquireVsCodeApi();
 const stageWrapper = document.getElementById('stage-wrapper');
@@ -16,6 +17,7 @@ scaffolding.shouldConnectPeripherals = true;
 scaffolding.usePackagedRuntime = false;
 
 scaffolding.setup();
+setup(scaffolding.vm);
 scaffolding.appendTo(stageWrapper);
 
 document.getElementById("start-btn").onclick = () => {
@@ -23,6 +25,9 @@ document.getElementById("start-btn").onclick = () => {
 };
 document.getElementById("stop-btn").onclick = () => {
   scaffolding.stopAll();
+};
+document.getElementById("pause-btn").onclick = () => {
+  setPaused(!isPaused());
 };
 
 window.addEventListener('load', event => {
@@ -36,6 +41,18 @@ window.addEventListener('load', event => {
       case 'loadSB3':
         scaffolding.loadProject(message.data)
           .then(() => scaffolding.greenFlag());
+        break;
+      case 'pause':
+        console.log('webview paused');
+        setPaused(true);
+        vscode.postMessage({ message: 'stopped', data: 'pause' });
+        break;
+      case 'continue':
+        setPaused(false);
+        break;
+      case 'step':
+        setPaused(true);
+        
     }
   });
 
