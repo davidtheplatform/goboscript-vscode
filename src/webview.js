@@ -1,63 +1,43 @@
 import { Buffer } from 'buffer';
 window.Buffer = Buffer;
 
-import VirtualMachine from 'scratch-vm';
-import Renderer from 'scratch-render';
-import AudioEngine from 'scratch-audio';
-const {ScratchStorage, DataFormat} = require('scratch-storage');
-const {BitmapAdapter} = require('scratch-svg-renderer');
-const validate = require('scratch-parser');
+const Scaffolding = require('@turbowarp/scaffolding/with-music');
 
 const vscode = acquireVsCodeApi();
-const canvas = document.getElementById('scratch-canvas');
+const stageWrapper = document.getElementById('stage-wrapper');
 
-const vm = new VirtualMachine();
-const renderer = new Renderer(canvas);
-const audioEngine = new AudioEngine();
-const storage = new ScratchStorage();
+const scaffolding = new Scaffolding.Scaffolding();
+window.scaffolding = scaffolding;
+scaffolding.width = 480;
+scaffolding.height = 360;
+scaffolding.resizeMode = 'preserve-ratio'; // or 'dynamic-resize' or 'stretch'
+scaffolding.editableLists = false;
+scaffolding.shouldConnectPeripherals = true;
+scaffolding.usePackagedRuntime = false;
 
-storage.addWebSource([storage.AssetType.ImageBitmap, storage.AssetType.Sound], (asset) => {
-  return fetch(asset.assetId)
-    .then((res) => res.ok ? res.arrayBuffer() : Promise.reject(new Error("Asset not found")))
-    .then((data) => ({ data }));
-});
-
-storage.addHelper(DataFormat.PNG, {
-  decode: (data) => renderer._getBitmapAdapter().decode(data)
-});
-
-storage.addHelper(DataFormat.SVG, {
-  decode: (data) => new TextDecoder().decode(data)
-});
-
-vm.attachRenderer(renderer);
-vm.attachV2BitmapAdapter(new BitmapAdapter());
-vm.attachAudioEngine(audioEngine);
-vm.attachStorage(storage);
-vm.start();
+scaffolding.setup();
+scaffolding.appendTo(stageWrapper);
 
 document.getElementById("start-btn").onclick = () => {
-    vm.greenFlag();
+  scaffolding.greenFlag();
 };
 document.getElementById("stop-btn").onclick = () => {
-    vm.stopAll();
+  scaffolding.stopAll();
 };
-
-vscode.postMessage("test message");
 
 window.addEventListener('load', event => {
   window.addEventListener('message', event => {
     const message = event.data;
-    
+
     switch (message.command) {
       case 'shutdown':
-      vm.stopAll();
-      break;
+        vm.stopAll();
+        break;
       case 'loadSB3':
-        vm.loadProject(message.data)
-        .then(() => vm.greenFlag());
-      }
+        scaffolding.loadProject(message.data)
+          .then(() => scaffolding.greenFlag());
+    }
   });
 
-  vscode.postMessage({message: 'webviewLoaded', data: undefined});
+  vscode.postMessage({ message: 'webviewLoaded', data: undefined });
 });

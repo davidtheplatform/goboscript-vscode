@@ -110,16 +110,13 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
+    "@turbowarp/scaffolding": "0.3.0",
     "@vscode/debugadapter": "^1.68.0",
     "@vscode/debugprotocol": "^1.68.0",
     "await-notify": "^1.0.1",
     "base64-js": "^1.5.1",
     "buffer": "^6.0.3",
-    "path-browserify": "^1.0.1",
-    "scratch-audio": "^2.0.145",
-    "scratch-render": "^2.0.369",
-    "scratch-storage": "^4.0.140",
-    "scratch-svg-renderer": "^3.0.121",
-    "scratch-vm": "^5.0.300"
+    "copy-webpack-plugin": "^13.0.0",
+    "path-browserify": "^1.0.1"
   }
 }

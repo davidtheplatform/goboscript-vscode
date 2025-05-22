@@ -132,12 +132,12 @@ function getWebviewContent(scriptUri: vscode.Uri) {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Scratch VM</title>
     </head>
-    <body>
+    <body style="padding: 5px;">
       <button id="start-btn">start</button>
       <button id="stop-btn">stop</button>
       <br>
-      <canvas id="scratch-canvas" width="480" height="360"></canvas>
-      <script src="${scriptUri}">
+      <div id="stage-wrapper" style="position: absolute; left: 5px; right: 5px; top: 30px; bottom: 5px;"></div>
+      <script src="${scriptUri}"></script>
     </body>
     </html>
   `;
