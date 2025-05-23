@@ -13,7 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.TaskScope.Workspace,
           "build",
           "goboscript",
-          new vscode.ShellExecution("goboscript build")
+          new vscode.ShellExecution("goboscript build --output project.sb3")
         ),
       ];
     },

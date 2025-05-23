@@ -6,11 +6,10 @@ import {
   LoggingDebugSession,
   InitializedEvent,
   TerminatedEvent,
-  StoppedEvent,
   Thread,
   ThreadEvent,
+  StoppedEvent,
 } from "@vscode/debugadapter";
-const VirtualMachine = require("scratch-vm");
 import { DebugProtocol } from "@vscode/debugprotocol";
 
 export class GoboscriptInlineDebugSession extends LoggingDebugSession {
@@ -20,6 +19,9 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
 
   webviewLoaded: Boolean = false;
   _loadSB3?: NodeJS.Timeout;
+
+  vmThreads: { [name: string] : number} = {};
+  newThreadId: number = 1;
 
   constructor(context: vscode.ExtensionContext) {
     super("debug_log.txt");
@@ -60,9 +62,17 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
       case "webviewLoaded":
         this.webviewLoaded = true;
         break;
+      case 'stepped':
       case "stopped":
-        this.sendEvent(new StoppedEvent(message.data, 1));
-        console.log('send stop event');
+        for (const id in this.vmThreads) {
+          var event = new StoppedEvent(id, this.vmThreads[id]);
+          this.sendEvent(event);
+        }
+        break;
+      case 'startThread':
+        this.vmThreads[(message.data.targetName + ': ' + message.data.blockId)] = this.newThreadId;
+        this.sendEvent(new ThreadEvent('started', this.newThreadId));
+        this.newThreadId += 1;
         break;
     }
   }
@@ -74,7 +84,6 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
     response.body = response.body || {};
     response.body.supportsConfigurationDoneRequest = true;
     response.body.supportSuspendDebuggee = true;
-    response.body.supportsSingleThreadExecutionRequests = true;
     this.sendResponse(response);
     this.sendEvent(new InitializedEvent());
   }
@@ -109,11 +118,12 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
     request?: DebugProtocol.Request
   ): void {
     response.body = response.body || {};
-    this.panel.webview.postMessage({
-      command: 'getThreads',
-      data: undefined
-    });
-    response.body.threads = [new Thread(1, "main")];
+    response.body.threads = [];
+
+    for (const id in this.vmThreads) {
+      response.body.threads.push(new Thread(this.vmThreads[id], id));
+    }
+
     this.sendResponse(response);
   }
 
@@ -128,6 +138,11 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
       data: undefined,
     });
 
+    this.sendResponse(response);
+  }
+
+  protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments, request?: DebugProtocol.Request): void {
+    this.panel.webview.postMessage({ command: 'step', data: args.granularity });
     this.sendResponse(response);
   }
 

@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 window.Buffer = Buffer;
 
 const Scaffolding = require('@turbowarp/scaffolding/with-music');
-import { isPaused, setPaused, onPauseChanged, setup } from "./module.js";
+import { isPaused, setPaused, onPauseChanged, setup, singleStep, getRunningThread } from "./module.js";
 
 const vscode = acquireVsCodeApi();
 const stageWrapper = document.getElementById('stage-wrapper');
@@ -17,6 +17,19 @@ scaffolding.shouldConnectPeripherals = true;
 scaffolding.usePackagedRuntime = false;
 
 scaffolding.setup();
+
+scaffolding.vm.runtime.compilerOptions = {enabled: false, warpTimer: false}
+
+const _pushThread = scaffolding.vm.runtime._pushThread;
+scaffolding.vm.runtime._pushThread = function(...args) {
+  vscode.postMessage({ message: 'startThread', data: {blockId: args[0], targetName: args[1].getName()}});
+  return _pushThread.apply(this, args);
+};
+
+function makeThreadId(thread) {
+  return thread.target.getName() + ": " + thread.topBlock;
+}
+
 setup(scaffolding.vm);
 scaffolding.appendTo(stageWrapper);
 
@@ -42,8 +55,14 @@ window.addEventListener('load', event => {
         scaffolding.loadProject(message.data)
           .then(() => scaffolding.greenFlag());
         break;
+      case 'getThreads':
+        var threads = [];
+        scaffolding.vm.runtime.threads.forEach(thread => {
+          threads.push(makeThreadId(thread));
+        });
+        vscode.postMessage({ message: 'threads', data: threads });
+        break;
       case 'pause':
-        console.log('webview paused');
         setPaused(true);
         vscode.postMessage({ message: 'stopped', data: 'pause' });
         break;
@@ -51,8 +70,9 @@ window.addEventListener('load', event => {
         setPaused(false);
         break;
       case 'step':
-        setPaused(true);
-        
+        singleStep();
+        vscode.postMessage({ message: 'stepped', data: makeThreadId(getRunningThread()) });
+        break;
     }
   });
 
