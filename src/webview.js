@@ -6,6 +6,7 @@ import { isPaused, setPaused, onPauseChanged, setup, singleStep, getRunningThrea
 
 const vscode = acquireVsCodeApi();
 const stageWrapper = document.getElementById('stage-wrapper');
+import { ScratchThread } from './common.ts';
 
 const scaffolding = new Scaffolding.Scaffolding();
 window.scaffolding = scaffolding;
@@ -18,16 +19,37 @@ scaffolding.usePackagedRuntime = false;
 
 scaffolding.setup();
 
-scaffolding.vm.runtime.compilerOptions = {enabled: false, warpTimer: false}
+scaffolding.vm.runtime.compilerOptions = { enabled: false, warpTimer: false };
+
+var newThreadId = 1;
 
 const _pushThread = scaffolding.vm.runtime._pushThread;
-scaffolding.vm.runtime._pushThread = function(...args) {
-  vscode.postMessage({ message: 'startThread', data: {blockId: args[0], targetName: args[1].getName()}});
+scaffolding.vm.runtime._pushThread = function (...args) {
+  vscode.postMessage({ message: 'startThread', data: new ScratchThread({target: args[1], stack: [args[0]], debugId: newThreadId}) });
+  newThreadId += 1;
   return _pushThread.apply(this, args);
 };
 
 function makeThreadId(thread) {
   return thread.target.getName() + ": " + thread.topBlock;
+}
+
+function createIds() {
+  scaffolding.vm.runtime.threads.forEach((thread) => {
+    if (thread.debugId === undefined) {
+      thread.debugId = newThreadId;
+      newThreadId += 1;
+    }
+  });
+}
+
+function sendThreads() {
+  createIds();
+  var threads = [];
+  scaffolding.vm.runtime.threads.forEach(thread => {
+    threads.push(new ScratchThread(thread));
+  });
+  vscode.postMessage({ message: 'threads', data: threads });
 }
 
 setup(scaffolding.vm);
@@ -46,6 +68,7 @@ document.getElementById("pause-btn").onclick = () => {
 window.addEventListener('load', event => {
   window.addEventListener('message', event => {
     const message = event.data;
+    console.log("webview message: ", event);
 
     switch (message.command) {
       case 'shutdown':
@@ -56,14 +79,12 @@ window.addEventListener('load', event => {
           .then(() => scaffolding.greenFlag());
         break;
       case 'getThreads':
-        var threads = [];
-        scaffolding.vm.runtime.threads.forEach(thread => {
-          threads.push(makeThreadId(thread));
-        });
-        vscode.postMessage({ message: 'threads', data: threads });
+        sendThreads();
         break;
       case 'pause':
         setPaused(true);
+        
+        sendThreads();
         vscode.postMessage({ message: 'stopped', data: 'pause' });
         break;
       case 'continue':
@@ -71,7 +92,8 @@ window.addEventListener('load', event => {
         break;
       case 'step':
         singleStep();
-        vscode.postMessage({ message: 'stepped', data: makeThreadId(getRunningThread()) });
+        sendThreads();
+        vscode.postMessage({ message: 'stepped', data: getRunningThread().debugId });
         break;
     }
   });

@@ -117,6 +117,7 @@
     "base64-js": "^1.5.1",
     "buffer": "^6.0.3",
     "copy-webpack-plugin": "^13.0.0",
+    "jszip": "^3.10.1",
     "path-browserify": "^1.0.1"
   }
 }

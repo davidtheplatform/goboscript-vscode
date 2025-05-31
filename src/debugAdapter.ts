@@ -9,8 +9,12 @@ import {
   Thread,
   ThreadEvent,
   StoppedEvent,
+  StackFrame,
+  Source,
 } from "@vscode/debugadapter";
 import { DebugProtocol } from "@vscode/debugprotocol";
+import * as jszip from "jszip";
+import { ScratchThread } from "./common";
 
 export class GoboscriptInlineDebugSession extends LoggingDebugSession {
   panel: vscode.WebviewPanel;
@@ -20,8 +24,9 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
   webviewLoaded: Boolean = false;
   _loadSB3?: NodeJS.Timeout;
 
-  vmThreads: { [name: string] : number} = {};
-  newThreadId: number = 1;
+  vmThreads: { [id: number]: ScratchThread } = {};
+
+  diagnostics: any;
 
   constructor(context: vscode.ExtensionContext) {
     super("debug_log.txt");
@@ -56,24 +61,42 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
     });
   }
 
+  getSourceLocation(sprite: string, blockId: string) {
+    if (this.diagnostics.sprites_diagnostics[sprite].debug_info.blocks['"' + blockId + '"'] === undefined) {
+      return undefined;
+    }
+    var range = this.diagnostics.sprites_diagnostics[sprite].debug_info.blocks['"' + blockId + '"'];
+    var path = this.diagnostics.sprites_diagnostics[sprite].translation_unit.path;
+    var content = fs.readFileSync(path, {encoding: 'utf-8'}).slice(0, range.start);
+    const lines = (content.match(/\n/g) || '').length + 1;
+
+    return {
+      path: path,
+      linenum: lines,
+    };
+  }
+
   handleWebviewMessage(message: any) {
-    console.log('ext message: ', message.message);
+    console.log("ext message: ", message.message);
     switch (message.message) {
       case "webviewLoaded":
         this.webviewLoaded = true;
         break;
-      case 'stepped':
+      case "stepped":
       case "stopped":
-        for (const id in this.vmThreads) {
-          var event = new StoppedEvent(id, this.vmThreads[id]);
+        for (var id in this.vmThreads) {
+          var event = new StoppedEvent(id, this.vmThreads[id].id);
           this.sendEvent(event);
         }
         break;
-      case 'startThread':
-        this.vmThreads[(message.data.targetName + ': ' + message.data.blockId)] = this.newThreadId;
-        this.sendEvent(new ThreadEvent('started', this.newThreadId));
-        this.newThreadId += 1;
+      case "startThread":
+        this.vmThreads[message.data.id] = message.data;
+        this.sendEvent(new ThreadEvent("started", message.data.id));
         break;
+      case "threads":
+        message.data.forEach((thread: ScratchThread) => {
+          this.vmThreads[thread.id] = thread;
+        });
     }
   }
 
@@ -102,9 +125,18 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
           vscode.workspace.fs
             .readFile(vscode.Uri.file((args as any).project))
             .then((content) => {
-              this.panel.webview.postMessage({
-                command: "loadSB3",
-                data: content.buffer,
+              jszip.loadAsync(content).then((zip) => {
+                this.diagnostics = zip!
+                  .file("artifact.json")!
+                  .async("string")
+                  .then((data) => {
+                    this.diagnostics = JSON.parse(data);
+                  });
+
+                this.panel.webview.postMessage({
+                  command: "loadSB3",
+                  data: content.buffer,
+                });
               });
             });
         }
@@ -121,7 +153,7 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
     response.body.threads = [];
 
     for (const id in this.vmThreads) {
-      response.body.threads.push(new Thread(this.vmThreads[id], id));
+      response.body.threads.push(new Thread(this.vmThreads[id].id, id));
     }
 
     this.sendResponse(response);
@@ -141,8 +173,12 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
     this.sendResponse(response);
   }
 
-  protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments, request?: DebugProtocol.Request): void {
-    this.panel.webview.postMessage({ command: 'step', data: args.granularity });
+  protected nextRequest(
+    response: DebugProtocol.NextResponse,
+    args: DebugProtocol.NextArguments,
+    request?: DebugProtocol.Request
+  ): void {
+    this.panel.webview.postMessage({ command: "step", data: args.granularity });
     this.sendResponse(response);
   }
 
@@ -155,6 +191,36 @@ export class GoboscriptInlineDebugSession extends LoggingDebugSession {
       command: "continue",
       data: undefined,
     });
+
+    this.sendResponse(response);
+  }
+
+  protected stackTraceRequest(
+    response: DebugProtocol.StackTraceResponse,
+    args: DebugProtocol.StackTraceArguments,
+    request?: DebugProtocol.Request
+  ): void {
+    response.body = response.body || {};
+    response.body.stackFrames = [];
+    if (args.threadId in this.vmThreads) {
+      for (const [block, id] of this.vmThreads[args.threadId].stack) {
+        var source = this.getSourceLocation(this.vmThreads[args.threadId].sprite, block);
+        if (source === undefined) {
+            continue;
+        }
+        
+        response.body.stackFrames.push(
+          new StackFrame(
+            id,
+            "name",
+            new Source(path.basename(source.path), source.path),
+            source.linenum
+          )
+        );
+      }
+    }
+
+    response.body.stackFrames.reverse();
 
     this.sendResponse(response);
   }
@@ -206,4 +272,8 @@ function getWebviewContent(scriptUri: vscode.Uri) {
     </body>
     </html>
   `;
+}
+
+function makeThreadId(thread: any) {
+  return thread.target.getName() + ": " + thread.topBlock;
 }

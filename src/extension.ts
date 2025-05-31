@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { GoboscriptDebugAdapterFactory } from "./debugAdapter";
 const GoboscriptAdapter = require("./debugAdapter");
+const compilerPromise = import("goboscript");
 
 export function activate(context: vscode.ExtensionContext) {
   const taskProvider = vscode.tasks.registerTaskProvider("goboscript", {
@@ -13,7 +14,8 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.TaskScope.Workspace,
           "build",
           "goboscript",
-          new vscode.ShellExecution("goboscript build --output project.sb3")
+          new vscode.ShellExecution("goboscript build --output project.sb3"),
+          ["$rustc"]
         ),
       ];
     },

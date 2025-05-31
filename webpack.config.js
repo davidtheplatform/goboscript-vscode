@@ -47,6 +47,9 @@ const extensionConfig = {
   infrastructureLogging: {
     level: "log", // enables logging required for problem matchers
   },
+  experiments: {
+    asyncWebAssembly: true,
+  },
 };
 
 const webviewConfig = {
@@ -63,6 +66,7 @@ const webviewConfig = {
       crypto: false,
       buffer: require.resolve('buffer/'),
     },
+    extensions: ['ts', 'js']
   },
   plugins: [
     new webpack.ProvidePlugin({
@@ -85,7 +89,19 @@ const webviewConfig = {
         test: /\.(mp3|wav)$/,
         type: 'asset/resource',
       },
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: 'ts-loader',
+          }
+        ]
+      },
     ],
+  },
+  experiments: {
+    asyncWebAssembly: true,
   },
 };
 
